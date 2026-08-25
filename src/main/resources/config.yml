@@ -1,0 +1,75 @@
+database:
+  file: easychat.db
+
+placeholders:
+  enabled: true
+  # Требуется установленный PlaceholderAPI. Примеры: %player_name%, %vault_prefix%, %luckperms_prefix%
+
+chat:
+  local:
+    enabled: true
+    symbol: ""
+    permission: "easychat.chat.local"
+    radius: 100.0
+    format: "&7[&fL&7] &f{player}&7: &r{message}"
+  global:
+    enabled: true
+    symbol: "!"
+    permission: "easychat.chat.global"
+    radius: -1.0
+    format: "&6[&eG&6] &f{player}&7: &r{message}"
+  admin:
+    enabled: true
+    symbol: "%"
+    permission: "easychat.chat.admin"
+    format: "&c[ADMIN] &f{player}&7: &r{message}"
+  cooldown:
+    enabled: true
+    seconds: 3
+    bypass-permission: "easychat.bypass.cooldown"
+
+moderation:
+  bypass-permission: "easychat.bypass.mute"
+  default-reason: "нарушение правил"
+  self-unmute: false
+  messages:
+    muted: "&cвы не можете писать в чат: &f{reason}&c."
+    muted-no-reason: "&cвы не можете писать в чат."
+    no-permission: "&cу вас нет доступа к этому чату."
+    cooldown: "&cподождите &e{seconds}&c сек."
+    not-found: "&cигрок не найден."
+    mute-created: "&aигрок &f{player} &aзамучен на &f{duration}&a. Причина: &f{reason}"
+    unmuted: "&aигрок &f{player} &aразмучен."
+    cannot-unmute: "&cвы не можете снять этот мут: ваш weight слишком низкий."
+    already-muted: "&cу игрока уже есть активный мут."
+
+messages:
+  reload: "&aконфигурация EasyChat перезагружена."
+  invalid-duration: "&cневерная длительность. Примеры: 30s, 10m, 2h, 7d, perm"
+  usage-mute: "&c/mute <player> <duration|perm> [reason]"
+  usage-unmute: "&c/unmute <player>"
+  usage-easychat: "&c/easychat reload"
+
+weights:
+  # Fallback для серверов без LuckPerms. Отдельные строки: permission -> weight.
+  permissions:
+    "easychat.weight.admin": 100
+    "easychat.weight.moderator": 50
+    "easychat.weight.helper": 10
+  default: 0
+
+
+discordsrv:
+  # DiscordSRV is an optional soft dependency. EasyChat uses its webhook API for Minecraft -> Discord.
+  webhook: true
+  # DiscordSRV is an optional soft dependency. If it is not installed, EasyChat works normally.
+  enabled: true
+  # EasyChat forwards its own chat because ChatListener cancels the original Paper chat event.
+  channels:
+    local: false
+    global: true
+    admin: false
+  format:
+    local: "{player}: {message}"
+    global: "{player}: {message}"
+    admin: "[ADMIN] {player}: {message}"

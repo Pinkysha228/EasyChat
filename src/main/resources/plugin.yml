@@ -1,0 +1,40 @@
+name: EasyChat
+version: 1.0.4
+main: me.pinkysha.easychat.EasyChat
+api-version: '1.21.4'
+author: Pinkysha
+description: Multi-channel chat, colors, cooldowns and weight-based mutes.
+softdepend:
+  - LuckPerms
+  - PlaceholderAPI
+  - DiscordSRV
+commands:
+  easychat:
+    description: EasyChat administration command
+    usage: /easychat reload
+    permission: easychat.admin
+  mute:
+    description: Mute a player
+    usage: /mute <player> <duration|perm> [reason]
+    permission: easychat.moderation.mute
+  unmute:
+    description: Unmute a player
+    usage: /unmute <player>
+    permission: easychat.moderation.unmute
+permissions:
+  easychat.chat.local:
+    default: true
+  easychat.chat.global:
+    default: true
+  easychat.chat.admin:
+    default: op
+  easychat.bypass.cooldown:
+    default: op
+  easychat.bypass.mute:
+    default: op
+  easychat.moderation.mute:
+    default: op
+  easychat.moderation.unmute:
+    default: op
+  easychat.admin:
+    default: op
