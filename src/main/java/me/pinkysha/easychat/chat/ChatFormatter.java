@@ -16,9 +16,12 @@ public final class ChatFormatter {
 
     public Component format(Player player, ChatMessage message) {
         String text = message.channel().format()
-                .replace("{player}", player.getName())
-                .replace("{message}", message.rawMessage());
+                .replace("{player}", player.getName());
+
         text = placeholders.parse(player, text);
+
+        text = text.replace("{message}", message.rawMessage());
+
         return parser.parse(text);
     }
 }
