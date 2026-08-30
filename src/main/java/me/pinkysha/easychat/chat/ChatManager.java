@@ -87,6 +87,7 @@ public final class ChatManager {
 
         // Paper chat is cancelled by EasyChat, so DiscordSRV needs the message explicitly.
         plugin.discordSRVBridge().forward(sender, message);
+        plugin.networkBridge().forward(sender, message);
     }
 
     private boolean canReceive(Player receiver, Player sender, ChatChannel channel) {

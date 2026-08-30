@@ -19,6 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import me.pinkysha.easychat.util.PlaceholderService;
 import me.pinkysha.easychat.discord.DiscordSRVBridge;
+import me.pinkysha.easychat.network.NetworkBridge;
 
 public final class EasyChat extends JavaPlugin {
     private ExecutorService asyncExecutor;
@@ -33,6 +34,7 @@ public final class EasyChat extends JavaPlugin {
     private ChatManager chatManager;
     private PlaceholderService placeholderService;
     private DiscordSRVBridge discordSRVBridge;
+    private NetworkBridge networkBridge;
 
     @Override public void onEnable() {
         saveDefaultConfig();
@@ -54,9 +56,14 @@ public final class EasyChat extends JavaPlugin {
         placeholderService = new PlaceholderService(this);
         discordSRVBridge = new DiscordSRVBridge(this);
         getLogger().info("DiscordSRV: " + (discordSRVBridge.isAvailable() ? "enabled" : "disabled"));
-        chatManager = new ChatManager(this, permissionManager, muteManager, new ChatFormatter(new AdventureColorParser(), placeholderService), cooldownManager);
+        ChatFormatter chatFormatter = new ChatFormatter(new AdventureColorParser(), placeholderService);
+        chatManager = new ChatManager(this, permissionManager, muteManager, chatFormatter, cooldownManager);
         getLogger().info("PlaceholderAPI: " + (placeholderService.isEnabled() ? "enabled" : "disabled"));
         chatManager.reload();
+
+        networkBridge = new NetworkBridge(this, permissionManager, chatFormatter);
+        networkBridge.reload();
+        getLogger().info("Межсерверная адресация (Velocity): " + (getConfig().getBoolean("network.enabled", false) ? "enabled" : "disabled"));
 
         getServer().getPluginManager().registerEvents(new ChatListener(this, chatManager, permissionManager, muteManager, cooldownManager), this);
         registerCommands();
@@ -78,11 +85,12 @@ public final class EasyChat extends JavaPlugin {
         PluginCommand unmute = getCommand("unmute"); if (unmute != null) { var c=new UnmuteCommand(this, muteScheduler); unmute.setExecutor(c); unmute.setTabCompleter(c); }
     }
 
-    public void reloadPlugin() { reloadConfig(); configManager.reload(); chatManager.reload(); }
+    public void reloadPlugin() { reloadConfig(); configManager.reload(); chatManager.reload(); networkBridge.reload(); }
     public DatabaseManager databaseManager() { return databaseManager; }
     public MuteManager muteManager() { return muteManager; }
     public ExecutorService asyncExecutor() { return asyncExecutor; }
     public DiscordSRVBridge discordSRVBridge() { return discordSRVBridge; }
+    public NetworkBridge networkBridge() { return networkBridge; }
 
     public Component message(String path) {
         String raw = getConfig().getString(path, "");
@@ -99,6 +107,7 @@ public final class EasyChat extends JavaPlugin {
     }
 
     @Override public void onDisable() {
+        if (networkBridge != null) networkBridge.shutdown();
         if (muteScheduler != null) muteScheduler.cancelAll();
         if (asyncExecutor != null) { asyncExecutor.shutdown(); }
         if (databaseManager != null) databaseManager.close();

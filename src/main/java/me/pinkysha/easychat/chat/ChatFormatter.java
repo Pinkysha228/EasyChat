@@ -24,4 +24,13 @@ public final class ChatFormatter {
 
         return parser.parse(text);
     }
+
+    public Component formatRemote(ChatChannel channel, String tagFormat, String serverName, String senderName, String rawMessage) {
+        String tag = (tagFormat == null || tagFormat.isEmpty()) ? "" : tagFormat.replace("{server}", serverName);
+        String text = tag + channel.format()
+                .replace("{player}", senderName)
+                .replace("{message}", rawMessage);
+
+        return parser.parse(text);
+    }
 }
