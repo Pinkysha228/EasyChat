@@ -1,5 +1,5 @@
 name: EasyChat
-version: 1.0.4
+version: 1.0.5
 main: me.pinkysha.easychat.EasyChat
 api-version: '1.21.4'
 author: Pinkysha
