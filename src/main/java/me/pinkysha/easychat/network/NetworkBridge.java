@@ -19,11 +19,11 @@ import java.util.UUID;
 /**
  * Forwards global and administrative chat messages to other servers within the network
  * using a custom plugin-messaging channel ("easychat:notify"). The channel is handled
- * by the proxy-side NotifyRelay plugin, which distributes messages to the appropriate
+ * by the proxy-side EasyChatBridge plugin, which distributes messages to the appropriate
  * backend servers.
  *
  * Previously, this class used the standard Velocity "bungeecord:main" channel with
- * the "Forward"/"ALL" mechanism. Network transport is now handled by NotifyRelay,
+ * the "Forward"/"ALL" mechanism. Network transport is now handled by EasyChatBridge,
  * while this class is responsible solely for sending and receiving raw binary packets.
  *
  * The packet uses a compact binary format without JSON or reflection:
@@ -35,7 +35,7 @@ import java.util.UUID;
  * online at the time of transmission and eliminates the need for a separate carrier player.
  */
 public final class NetworkBridge implements PluginMessageListener {
-    private static final String NETWORK_CHANNEL = "easychat:notify"; // Must match the "channel=" value configured in NotifyRelay's config.properties
+    private static final String NETWORK_CHANNEL = "easychat:notify"; // Must match the "channel=" value configured in EasyChatBridge's config.properties
     private static final byte PROTOCOL_VERSION = 1;
 
     private final EasyChat plugin;
@@ -180,7 +180,7 @@ public final class NetworkBridge implements PluginMessageListener {
             String remoteServerId = in.readUTF();
 
             if (remoteServerId.equals(serverId)) {
-                // Ignore packets originating from this server. NotifyRelay is not expected
+                // Ignore packets originating from this server. EasyChatBridge is not expected
                 // to return packets to their source, but this additional check prevents
                 // accidental message loops.
                 return;
