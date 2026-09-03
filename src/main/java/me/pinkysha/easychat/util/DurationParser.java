@@ -7,11 +7,19 @@ import java.util.regex.Pattern;
 
 public final class DurationParser {
     private static final Pattern PATTERN = Pattern.compile("^(\\d+)(s|m|h|d|w)$", Pattern.CASE_INSENSITIVE);
+
     private DurationParser() {}
+
     public static Duration parse(String input) {
-        if (input == null || input.equalsIgnoreCase("perm") || input.equalsIgnoreCase("permanent")) return null;
+        if (input == null || input.equalsIgnoreCase("perm") || input.equalsIgnoreCase("permanent")) {
+            return null;
+        }
+
         Matcher m = PATTERN.matcher(input.trim().toLowerCase(Locale.ROOT));
-        if (!m.matches()) throw new IllegalArgumentException();
+        if (!m.matches()) {
+            throw new IllegalArgumentException();
+        }
+
         long value = Long.parseLong(m.group(1));
         return switch (m.group(2)) {
             case "s" -> Duration.ofSeconds(value);

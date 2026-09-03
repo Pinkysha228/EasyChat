@@ -8,9 +8,10 @@ import me.pinkysha.easychat.chat.ChatMessage;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
-/** Optional DiscordSRV integration. */
+/**
+ * Optional DiscordSRV integration.
+ */
 public final class DiscordSRVBridge {
-
     private final EasyChat plugin;
 
     public DiscordSRVBridge(EasyChat plugin) {
@@ -30,10 +31,7 @@ public final class DiscordSRVBridge {
     public void forward(Player sender, ChatMessage message) {
         if (!isAvailable()
                 || !plugin.getConfig().getBoolean("discordsrv.webhook", true)
-                || !plugin.getConfig().getBoolean(
-                "discordsrv.channels." + message.channel().id(),
-                false
-        )) {
+                || !plugin.getConfig().getBoolean("discordsrv.channels." + message.channel().id(), false)) {
             return;
         }
 
@@ -49,14 +47,11 @@ public final class DiscordSRVBridge {
             }
 
             if (channel == null) {
-                plugin.getLogger().warning(
-                        "DiscordSRV is enabled, but no destination text channel was found."
-                );
+                plugin.getLogger().warning("DiscordSRV is enabled, but no destination text channel was found.");
                 return;
             }
 
             String text = message.rawMessage();
-
             String avatarUrl = DiscordSRV.getAvatarUrl(sender);
 
             WebhookUtil.deliverMessage(
@@ -68,10 +63,7 @@ public final class DiscordSRVBridge {
             );
 
         } catch (Throwable throwable) {
-            plugin.getLogger().warning(
-                    "Failed to forward chat to DiscordSRV: "
-                            + throwable.getMessage()
-            );
+            plugin.getLogger().warning("Failed to forward chat to DiscordSRV: " + throwable.getMessage());
         }
     }
 }

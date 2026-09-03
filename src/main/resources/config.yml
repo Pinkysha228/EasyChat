@@ -1,9 +1,81 @@
 database:
+  # Set to true to use the local SQLite database file (offline mode).
+  # Set to false to connect to an external MySQL or MariaDB database server.
+  # When set to false, the connection settings below will be used.
+  is_offline: true
+
+  # SQLite local database file (used only when is_offline: true)
   file: easychat.db
 
+  # Remote database server settings (used only when is_offline: false)
+  # Supported types: mysql, mariadb
+  type: mysql
+  host: "127.0.0.1"
+  port: 3306
+  database: "easychat"
+  username: "root"
+  password: ""
+  ssl: false
+
+  # Connection pool settings
+  pool:
+    maximum-pool-size: 10
+    minimum-idle: 2
+    connection-timeout: 30000
+    max-lifetime: 1800000
+
 placeholders:
+  # PlaceholderAPI integration. Enables %easychat_...% placeholders for DeluxeMenus/chat formats.
+  enabled: false
+
+chatcolor:
+  # Enables the /chatcolor and /color command for persistent chat color selection.
   enabled: true
-    # PlaceholderAPI must be installed. Examples: %player_name%, %vault_prefix%, %luckperms_prefix%
+  permission: "easychat.chatcolor"
+  # Default color code if not set by player (empty = none)
+  default: ""
+  messages:
+    usage: "&cUsage: /chatcolor <color|hex|reset>"
+    set: "&aYour chat color has been set to {color}&a."
+    reset: "&aYour chat color has been reset to default."
+    no-permission: "&cYou do not have permission to use this color."
+    disabled: "&cChatColor is disabled on this server."
+
+private-messages:
+  # Master switch for private messaging (/msg, /tell, /w, /r, /msgtoggle, /ignore).
+  # Set to false if you want to use Essentials or another PM plugin without conflicts.
+  enabled: true
+
+  # Permissions
+  permission: "easychat.pm"
+  spy-permission: "easychat.pm.spy"
+  toggle-permission: "easychat.pm.toggle"
+  ignore-permission: "easychat.pm.ignore"
+
+  # Formats for private messages
+  format:
+    sender: "&7[&6Me &7-> &6{receiver}&7] &f{message}"
+    receiver: "&7[&6{sender} &7-> &6Me&7] &f{message}"
+    spy: "&8[SPY] &7[{sender} -> {receiver}]: &f{message}"
+
+  # Forward PMs across Velocity network if network.enabled is true
+  network-forward: true
+
+  messages:
+    usage-msg: "&cUsage: /msg <player> <message>"
+    usage-reply: "&cUsage: /r <message>"
+    usage-ignore: "&cUsage: /ignore <player>"
+    player-not-found: "&cPlayer &f{player} &cwas not found online."
+    cannot-msg-self: "&cYou cannot send private messages to yourself."
+    no-reply-target: "&cYou have nobody to reply to."
+    pm-disabled-sender: "&cYou have disabled private messages (/msgtoggle)."
+    pm-disabled-target: "&cPlayer &f{player} &chas disabled private messages."
+    player-ignored-you: "&cPlayer &f{player} &cis ignoring your messages."
+    now-ignoring: "&aYou are now ignoring &f{player}&a."
+    no-longer-ignoring: "&aYou are no longer ignoring &f{player}&a."
+    toggle-on: "&aPrivate messages enabled."
+    toggle-off: "&cPrivate messages disabled."
+    disabled: "&cPrivate messages are disabled on this server."
 
 chat:
   local:
@@ -41,6 +113,7 @@ moderation:
     mute-created: "&aPlayer &f{player} &ahas been muted for &f{duration}&a. Reason: &f{reason}"
     unmuted: "&aPlayer &f{player} &ahas been unmuted."
     cannot-unmute: "&cYou cannot remove this mute: your weight is too low."
+    cannot-mute: "&cYou cannot mute this player: their weight is higher than yours."
     already-muted: "&cThis player already has an active mute."
 
 messages:
@@ -48,71 +121,78 @@ messages:
   invalid-duration: "&cInvalid duration. Examples: 30s, 10m, 2h, 7d, perm"
   usage-mute: "&c/mute <player> <duration|perm> [reason]"
   usage-unmute: "&c/unmute <player>"
-  usage-easychat: "&c/easychat reload"
+  usage-easychat: "&c/easychat <reload|migrate>"
+  migrate-start: "&eStarting database migration from SQLite to {target}..."
+  migrate-success: "&aDatabase migration completed! Migrated {mutes} mutes and {moderators} moderators in {time}ms."
+  migrate-fail: "&cMigration failed: {error}"
+  migrate-offline-error: "&cMigration cannot be run while is_offline is true. Switch to MySQL/MariaDB in config first."
+  migrate-no-source: "&cSQLite database file ({file}) was not found."
 
-
-  # This feature requires the Velocity plugin to be installed:
-  # https://github.com/Pinkysha228/EasyChatBridge
+# This feature requires the Velocity plugin to be installed:
+# https://github.com/Pinkysha228/EasyChatBridge
 network:
-    # Forwards global/admin chat messages to other servers in the network
-    # using the built-in BungeeCord forwarding channel through Velocity
-    # (bungeecord:main -> Forward). No separate plugin is required on the
-    # Velocity side. The servers only need to be connected to the same Velocity
-    # proxy, and velocity.toml must allow plugin messaging.
-    #
-    # Any player-info-forwarding-mode is supported, including "modern".
-    # The bungeecord:main channel is handled separately by the proxy and is
-    # independent of the player forwarding mode.
+  # Forwards global/admin chat and private messages to other servers in the network
+  # using the plugin messaging channel through Velocity.
+  # (easychat:notify).
   enabled: false
 
-    # The name under which this server will be displayed in chat messages
-    # forwarded to other servers. This value can be changed freely.
+  # The name under which this server will be displayed in chat messages
+  # forwarded to other servers. This value can be changed freely.
   server-name: "server"
 
-    # Unique server ID used to prevent message echoing
-    # (messages will not be forwarded back to their originating server).
-    #
-    # This value may be left empty. In that case, a random ID will be generated
-    # on each server startup, which is sufficient for normal operation.
+  # Unique server ID used to prevent message echoing
+  # (messages will not be forwarded back to their originating server).
+  #
+  # This value may be left empty. In that case, a random ID will be generated
+  # on each server startup, which is sufficient for normal operation.
   server-id: ""
 
-    # Format added before the standard channel format for messages
-    # received from another server.
+  # Format added before the standard channel format for messages
+  # received from another server.
   tag-format: "&8[{server}]&r "
 
   forward:
     global: true
     admin: true
 
-    # A shared secret used to authenticate messages between servers is stored
-    # separately from this configuration file at:
-    # plugins/EasyChat/network.secret
-    #
-    # When enabled: true is used for the first time, the file will be created
-    # automatically. Manually copy the same secret to all other servers in
-    # the network. The value must be identical on every server.
+  # A shared secret used to authenticate messages between servers is stored
+  # separately from this configuration file at:
+  # plugins/EasyChat/network.secret
+  #
+  # When enabled: true is used for the first time, the file will be created
+  # automatically. Manually copy the same secret to all other servers in
+  # the network. The value must be identical on every server.
 
 weights:
-    # Fallback configuration for servers without LuckPerms.
-    # Each entry uses the following format: permission -> weight.
+  # Master switch for the weight system (disabled by default).
+  # When set to false, all weight checks for muting and unmuting are bypassed.
+  enabled: false
+
+  # When enabled, a moderator can only mute a player if target weight <= moderator weight.
+  check-mute: false
+
+  # When enabled, a moderator can only unmute if moderator weight >= original moderator weight.
+  check-unmute: true
+
+  # Fallback configuration for servers without LuckPerms.
+  # Each entry uses the following format: permission -> weight.
   permissions:
     "easychat.weight.admin": 100
     "easychat.weight.moderator": 50
     "easychat.weight.helper": 10
   default: 0
 
-
 discordsrv:
-    # DiscordSRV is an optional soft dependency.
-    # EasyChat uses its webhook API to forward Minecraft messages to Discord.
+  # DiscordSRV is an optional soft dependency.
+  # EasyChat uses its webhook API to forward Minecraft messages to Discord.
   webhook: true
 
-    # DiscordSRV is an optional soft dependency.
-    # If it is not installed, EasyChat will continue to function normally.
-  enabled: true
+  # DiscordSRV is an optional soft dependency.
+  # If it is not installed, EasyChat will continue to function normally.
+  enabled: false
 
-    # EasyChat forwards its own chat messages because ChatListener cancels
-    # the original Paper chat event.
+  # EasyChat forwards its own chat messages because ChatListener cancels
+  # the original Paper chat event.
   channels:
     local: false
     global: true

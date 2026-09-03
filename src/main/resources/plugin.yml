@@ -1,9 +1,9 @@
 name: EasyChat
-version: 1.0.5
+version: '${project.version}'
 main: me.pinkysha.easychat.EasyChat
 api-version: '1.21.4'
 author: Pinkysha
-description: Multi-channel chat, colors, cooldowns and weight-based mutes.
+description: Multi-channel chat, colors, cooldowns, private messages and weight-based mutes.
 softdepend:
   - LuckPerms
   - PlaceholderAPI
@@ -11,7 +11,7 @@ softdepend:
 commands:
   easychat:
     description: EasyChat administration command
-    usage: /easychat reload
+    usage: /easychat <reload|migrate>
     permission: easychat.admin
   mute:
     description: Mute a player
@@ -21,6 +21,29 @@ commands:
     description: Unmute a player
     usage: /unmute <player>
     permission: easychat.moderation.unmute
+  chatcolor:
+    description: Set your default chat color
+    aliases: [color]
+    usage: /chatcolor <color|hex|reset>
+    permission: easychat.chatcolor
+  msg:
+    description: Send a private message to a player
+    aliases: [tell, w, whisper]
+    usage: /msg <player> <message>
+    permission: easychat.pm
+  reply:
+    description: Reply to the last private message
+    aliases: [r]
+    usage: /r <message>
+    permission: easychat.pm
+  msgtoggle:
+    description: Toggle receiving private messages
+    usage: /msgtoggle
+    permission: easychat.pm.toggle
+  ignore:
+    description: Ignore private messages from a player
+    usage: /ignore <player>
+    permission: easychat.pm.ignore
 permissions:
   easychat.chat.local:
     default: true
@@ -37,4 +60,31 @@ permissions:
   easychat.moderation.unmute:
     default: op
   easychat.admin:
+    default: op
+  easychat.chatcolor:
+    description: Allows using /chatcolor command
+    default: true
+  easychat.pm:
+    description: Allows using /msg and /r
+    default: true
+  easychat.pm.spy:
+    description: Allows seeing social spy for private messages
+    default: op
+  easychat.pm.toggle:
+    description: Allows toggling private messages
+    default: true
+  easychat.pm.ignore:
+    description: Allows ignoring players in private messages
+    default: true
+  easychat.chat.color.*:
+    description: Allows using all legacy chat colors
+    default: op
+  easychat.chat.color.hex:
+    description: Allows using all HEX chat colors
+    default: op
+  easychat.chat.color.hex.*:
+    description: Allows using all HEX chat colors
+    default: op
+  easychat.chat.style.*:
+    description: Allows using all chat styles
     default: op

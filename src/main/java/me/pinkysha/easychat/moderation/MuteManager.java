@@ -4,10 +4,11 @@ import me.pinkysha.easychat.EasyChat;
 import me.pinkysha.easychat.database.MuteRepository;
 import me.pinkysha.easychat.group.GroupWeightProvider;
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.ConsoleCommandSender;
+import org.bukkit.entity.Player;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -20,13 +21,21 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class MuteManager {
     private final EasyChat plugin;
     private final MuteRepository repository;
-    private final GroupWeightProvider weightProvider;
+    private volatile GroupWeightProvider weightProvider;
     private final Map<UUID, Mute> active = new ConcurrentHashMap<>();
 
     public MuteManager(EasyChat plugin, MuteRepository repository, GroupWeightProvider weightProvider) {
         this.plugin = plugin;
         this.repository = repository;
         this.weightProvider = weightProvider;
+    }
+
+    public void setWeightProvider(GroupWeightProvider weightProvider) {
+        this.weightProvider = weightProvider;
+    }
+
+    public GroupWeightProvider weightProvider() {
+        return weightProvider;
     }
 
     public CompletableFuture<List<Mute>> load() {
@@ -61,14 +70,18 @@ public final class MuteManager {
         List<String> result = new ArrayList<>();
         for (UUID uuid : active.keySet()) {
             String name = getPlayerName(uuid);
-            if (name != null) result.add(name);
+            if (name != null) {
+                result.add(name);
+            }
         }
         return Collections.unmodifiableList(result);
     }
 
     public String getPlayerName(UUID uuid) {
         Player online = Bukkit.getPlayer(uuid);
-        if (online != null) return online.getName();
+        if (online != null) {
+            return online.getName();
+        }
         return Bukkit.getOfflinePlayer(uuid).getName();
     }
 
@@ -82,12 +95,18 @@ public final class MuteManager {
         return null;
     }
 
-    public CompletableFuture<Mute> mute(CommandSender moderator, UUID target, java.time.Duration duration, String reason) {
+    public CompletableFuture<Mute> mute(CommandSender moderator, UUID target, Duration duration, String reason) {
         UUID moderatorUuid = moderator instanceof Player player ? player.getUniqueId() : null;
         int weight = moderator instanceof ConsoleCommandSender ? Integer.MAX_VALUE : weightProvider.getWeight(moderatorUuid);
         Instant startedAt = Instant.now();
-        Mute mute = new Mute(target, moderatorUuid, weight, reason, startedAt,
-                duration == null ? null : startedAt.plus(duration));
+        Mute mute = new Mute(
+                target,
+                moderatorUuid,
+                weight,
+                reason,
+                startedAt,
+                duration == null ? null : startedAt.plus(duration)
+        );
 
         active.put(target, mute);
         return CompletableFuture.runAsync(() -> {
@@ -113,7 +132,29 @@ public final class MuteManager {
         }, plugin.asyncExecutor());
     }
 
+    public boolean canMute(UUID moderatorUuid, UUID targetUuid) {
+        if (!plugin.getConfig().getBoolean("weights.enabled", false)) {
+            return true;
+        }
+        if (!plugin.getConfig().getBoolean("weights.check-mute", false)) {
+            return true;
+        }
+        if (moderatorUuid == null) {
+            return true;
+        }
+        return weightProvider.getWeight(targetUuid) <= weightProvider.getWeight(moderatorUuid);
+    }
+
     public boolean canUnmute(UUID moderatorUuid, Mute mute) {
+        if (!plugin.getConfig().getBoolean("weights.enabled", false)) {
+            return true;
+        }
+        if (!plugin.getConfig().getBoolean("weights.check-unmute", true)) {
+            return true;
+        }
+        if (moderatorUuid == null) {
+            return true;
+        }
         return weightProvider.getWeight(moderatorUuid) >= mute.moderatorWeight();
     }
 }

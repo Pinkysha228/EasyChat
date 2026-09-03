@@ -1,8 +1,9 @@
 package me.pinkysha.easychat.chat;
 
 import me.pinkysha.easychat.EasyChat;
-import me.pinkysha.easychat.permission.PermissionManager;
 import me.pinkysha.easychat.moderation.MuteManager;
+import me.pinkysha.easychat.permission.PermissionManager;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -17,13 +18,19 @@ public final class ChatManager {
     private final MessageCooldownManager cooldowns;
     private final Map<ChatChannel, ChatChannel> channels = new EnumMap<>(ChatChannel.class);
 
-    public ChatManager(EasyChat plugin, PermissionManager permissions, MuteManager muteManager, ChatFormatter formatter, MessageCooldownManager cooldowns) {
+    public ChatManager(EasyChat plugin,
+                       PermissionManager permissions,
+                       MuteManager muteManager,
+                       ChatFormatter formatter,
+                       MessageCooldownManager cooldowns) {
         this.plugin = plugin;
         this.permissions = permissions;
         this.muteManager = muteManager;
         this.formatter = formatter;
         this.cooldowns = cooldowns;
-        for (ChatChannel c : ChatChannel.values()) channels.put(c, c);
+        for (ChatChannel c : ChatChannel.values()) {
+            channels.put(c, c);
+        }
     }
 
     public void reload() {
@@ -72,7 +79,7 @@ public final class ChatManager {
     }
 
     public void send(Player sender, ChatMessage message) {
-        var formatted = formatter.format(sender, message);
+        Component formatted = formatter.format(sender, message);
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!canReceive(player, sender, message.channel())) {

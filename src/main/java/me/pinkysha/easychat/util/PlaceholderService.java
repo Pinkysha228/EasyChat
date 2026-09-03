@@ -1,8 +1,8 @@
 package me.pinkysha.easychat.util;
 
+import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import me.clip.placeholderapi.PlaceholderAPI;
 
 public final class PlaceholderService {
     private final Plugin plugin;
@@ -25,7 +25,7 @@ public final class PlaceholderService {
         try {
             return PlaceholderAPI.setPlaceholders(player, text);
         } catch (Throwable ignored) {
-            plugin.getLogger().warning("Не удалось обработать PlaceholderAPI placeholders.");
+            plugin.getLogger().warning("Failed to process PlaceholderAPI placeholders.");
             return text;
         }
     }

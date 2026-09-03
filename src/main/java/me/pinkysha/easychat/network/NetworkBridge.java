@@ -7,7 +7,9 @@ import me.pinkysha.easychat.EasyChat;
 import me.pinkysha.easychat.chat.ChatChannel;
 import me.pinkysha.easychat.chat.ChatFormatter;
 import me.pinkysha.easychat.chat.ChatMessage;
+import me.pinkysha.easychat.chat.PrivateMessageManager;
 import me.pinkysha.easychat.permission.PermissionManager;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.messaging.PluginMessageListener;
@@ -17,30 +19,21 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Forwards global and administrative chat messages to other servers within the network
- * using a custom plugin-messaging channel ("easychat:notify"). The channel is handled
- * by the proxy-side EasyChatBridge plugin, which distributes messages to the appropriate
- * backend servers.
- *
- * Previously, this class used the standard Velocity "bungeecord:main" channel with
- * the "Forward"/"ALL" mechanism. Network transport is now handled by EasyChatBridge,
- * while this class is responsible solely for sending and receiving raw binary packets.
- *
- * The packet uses a compact binary format without JSON or reflection:
- * protocol version (1 byte) + shared secret + server ID + server name + channel +
- * sender name + message content.
- *
- * Each forwarded chat message requires exactly one outgoing plugin message. The message
- * is sent through the sender's own connection, which guarantees that the sender is
- * online at the time of transmission and eliminates the need for a separate carrier player.
+ * Forwards global, admin, and private chat messages across servers in the network
+ * using a custom plugin-messaging channel ("easychat:notify").
+ * The channel is handled by the proxy-side EasyChatBridge plugin, which distributes
+ * messages to the appropriate backend servers.
  */
 public final class NetworkBridge implements PluginMessageListener {
-    private static final String NETWORK_CHANNEL = "easychat:notify"; // Must match the "channel=" value configured in EasyChatBridge's config.properties
+    private static final String NETWORK_CHANNEL = "easychat:notify";
     private static final byte PROTOCOL_VERSION = 1;
+    private static final String PM_CHANNEL_ID = "__PM__";
+    private static final String PM_ACK_CHANNEL_ID = "__PM_ACK__";
 
     private final EasyChat plugin;
     private final PermissionManager permissions;
     private final ChatFormatter formatter;
+    private PrivateMessageManager pmManager;
 
     private final Map<ChatChannel, Boolean> forward = new EnumMap<>(ChatChannel.class);
     private boolean enabled;
@@ -56,15 +49,15 @@ public final class NetworkBridge implements PluginMessageListener {
         this.formatter = formatter;
     }
 
+    public void setPrivateMessageManager(PrivateMessageManager pmManager) {
+        this.pmManager = pmManager;
+    }
+
     public void reload() {
         var c = plugin.getConfig();
 
         if (serverId == null) {
             String configured = c.getString("network.server-id", "");
-
-            // Do not write an automatically generated ID back to config.yml in order
-            // to preserve existing comments when save() is called. A randomly generated
-            // ID is sufficient to prevent message loops within the current process.
             serverId = configured.isBlank() ? UUID.randomUUID().toString() : configured;
         }
 
@@ -98,7 +91,9 @@ public final class NetworkBridge implements PluginMessageListener {
     }
 
     private void register() {
-        if (registered) return;
+        if (registered) {
+            return;
+        }
 
         var messenger = plugin.getServer().getMessenger();
         messenger.registerOutgoingPluginChannel(plugin, NETWORK_CHANNEL);
@@ -107,7 +102,9 @@ public final class NetworkBridge implements PluginMessageListener {
     }
 
     private void unregister() {
-        if (!registered) return;
+        if (!registered) {
+            return;
+        }
 
         var messenger = plugin.getServer().getMessenger();
         messenger.unregisterOutgoingPluginChannel(plugin, NETWORK_CHANNEL);
@@ -119,7 +116,6 @@ public final class NetworkBridge implements PluginMessageListener {
         unregister();
     }
 
-    /** Called by ChatManager immediately after the message has been broadcast locally. */
     public void forward(Player sender, ChatMessage message) {
         if (!enabled || !Boolean.TRUE.equals(forward.get(message.channel()))) {
             return;
@@ -136,25 +132,62 @@ public final class NetworkBridge implements PluginMessageListener {
 
         sender.sendPluginMessage(plugin, NETWORK_CHANNEL, payload.toByteArray());
 
-        plugin.getLogger().info(
-                "[NET] Forwarded to network: ["
-                        + message.channel().id().toUpperCase()
-                        + "] "
-                        + sender.getName()
-        );
+        plugin.getLogger().info("[NET] Forwarded to network: ["
+                + message.channel().id().toUpperCase() + "] "
+                + sender.getName());
+    }
+
+    public void forwardPrivateMessage(Player sender, String targetPlayerName, String rawMessage) {
+        if (!enabled || !plugin.getConfig().getBoolean("private-messages.network-forward", true)) {
+            Component msg = plugin.message("private-messages.messages.player-not-found");
+            sender.sendMessage(plugin.replace(msg, "{player}", targetPlayerName));
+            return;
+        }
+
+        String filtered = permissions.applyColorPermissions(sender, rawMessage);
+
+        ByteArrayDataOutput payload = ByteStreams.newDataOutput();
+        payload.writeByte(PROTOCOL_VERSION);
+        payload.writeUTF(secret);
+        payload.writeUTF(serverId);
+        payload.writeUTF(serverName);
+        payload.writeUTF(PM_CHANNEL_ID);
+        payload.writeUTF(sender.getName());
+        payload.writeUTF(sender.getUniqueId().toString());
+        payload.writeUTF(targetPlayerName);
+        payload.writeUTF(filtered);
+
+        sender.sendPluginMessage(plugin, NETWORK_CHANNEL, payload.toByteArray());
+    }
+
+    private void sendPmAck(String originalServerId, UUID senderUuid, String senderName, String targetName, String filteredMessage) {
+        Player anyPlayer = Bukkit.getOnlinePlayers().stream().findFirst().orElse(null);
+        if (anyPlayer == null) {
+            return;
+        }
+
+        ByteArrayDataOutput payload = ByteStreams.newDataOutput();
+        payload.writeByte(PROTOCOL_VERSION);
+        payload.writeUTF(secret);
+        payload.writeUTF(serverId);
+        payload.writeUTF(serverName);
+        payload.writeUTF(PM_ACK_CHANNEL_ID);
+        payload.writeUTF(originalServerId);
+        payload.writeUTF(senderUuid.toString());
+        payload.writeUTF(senderName);
+        payload.writeUTF(targetName);
+        payload.writeUTF(filteredMessage);
+
+        anyPlayer.sendPluginMessage(plugin, NETWORK_CHANNEL, payload.toByteArray());
     }
 
     @Override
     public void onPluginMessageReceived(String channel, Player player, byte[] message) {
         if (!NETWORK_CHANNEL.equals(channel)) {
-            return; // Not our channel; silently ignore messages from other plugins.
+            return;
         }
 
         if (!enabled) {
-            plugin.getLogger().warning(
-                    "A network chat packet was received, but network.enabled=false on this server. "
-                            + "The packet has been discarded."
-            );
             return;
         }
 
@@ -162,8 +195,6 @@ public final class NetworkBridge implements PluginMessageListener {
             ByteArrayDataInput in = ByteStreams.newDataInput(message);
 
             if (in.readByte() != PROTOCOL_VERSION) {
-                // Ignore packets using an unsupported protocol version rather than
-                // allowing them to cause an exception or affect server stability.
                 return;
             }
 
@@ -171,74 +202,102 @@ public final class NetworkBridge implements PluginMessageListener {
                 plugin.getLogger().warning(
                         "Network chat packet rejected: the provided network secret does not match. "
                                 + "Ensure that plugins/EasyChat/network.secret is copied from one server "
-                                + "to all other servers in the network. The secret must be identical "
-                                + "across all servers and must not be generated independently on each server."
+                                + "to all other servers in the network."
                 );
                 return;
             }
 
             String remoteServerId = in.readUTF();
-
             if (remoteServerId.equals(serverId)) {
-                // Ignore packets originating from this server. EasyChatBridge is not expected
-                // to return packets to their source, but this additional check prevents
-                // accidental message loops.
                 return;
             }
 
             String remoteServerName = in.readUTF();
-            ChatChannel target = resolveChannel(in.readUTF());
+            String channelId = in.readUTF();
+
+            if (PM_CHANNEL_ID.equals(channelId)) {
+                String senderName = in.readUTF();
+                UUID senderUuid = UUID.fromString(in.readUTF());
+                String targetPlayerName = in.readUTF();
+                String filteredMessage = in.readUTF();
+
+                Player target = Bukkit.getPlayerExact(targetPlayerName);
+                if (target != null && pmManager != null) {
+                    pmManager.deliverRemotePrivateMessage(senderName, senderUuid, target, filteredMessage);
+                    sendPmAck(remoteServerId, senderUuid, senderName, target.getName(), filteredMessage);
+                }
+                return;
+            }
+
+            if (PM_ACK_CHANNEL_ID.equals(channelId)) {
+                String targetServerId = in.readUTF();
+                if (!targetServerId.equals(serverId)) {
+                    return;
+                }
+                UUID senderUuid = UUID.fromString(in.readUTF());
+                String senderName = in.readUTF();
+                String targetName = in.readUTF();
+                String filteredMessage = in.readUTF();
+
+                Player sender = Bukkit.getPlayer(senderUuid);
+                if (sender != null && pmManager != null) {
+                    String senderFormat = plugin.getConfig().getString("private-messages.format.sender", "&7[&6Me &7-> &6{receiver}&7] &f{message}");
+                    Component msgComp = plugin.colorParser().parseFiltered(filteredMessage);
+                    String base = senderFormat.replace("{sender}", senderName).replace("{receiver}", targetName);
+                    Component senderView;
+                    if (base.contains("{message}")) {
+                        int index = base.indexOf("{message}");
+                        Component before = plugin.messageRaw(base.substring(0, index));
+                        Component after = plugin.messageRaw(base.substring(index + "{message}".length()));
+                        senderView = before.append(msgComp).append(after);
+                    } else {
+                        senderView = plugin.messageRaw(base);
+                    }
+                    sender.sendMessage(senderView);
+                    pmManager.setReplyTarget(senderUuid, targetName);
+                }
+                return;
+            }
+
+            ChatChannel target = resolveChannel(channelId);
             String senderName = in.readUTF();
             String rawMessage = in.readUTF();
 
             if (target == null) {
-                plugin.getLogger().warning(
-                        "Network chat packet rejected: unknown chat channel."
-                );
+                plugin.getLogger().warning("Network chat packet rejected: unknown chat channel.");
                 return;
             }
 
             if (!target.enabled()) {
-                plugin.getLogger().warning(
-                        "Network chat packet (" + target.id()
-                                + ") rejected: chat." + target.id()
-                                + ".enabled=false on this server."
-                );
+                plugin.getLogger().warning("Network chat packet (" + target.id()
+                        + ") rejected: chat." + target.id() + ".enabled=false on this server.");
                 return;
             }
 
             if (!Boolean.TRUE.equals(forward.get(target))) {
-                plugin.getLogger().warning(
-                        "Network chat packet (" + target.id()
-                                + ") rejected: network.forward." + target.id()
-                                + "=false on this server."
-                );
+                plugin.getLogger().warning("Network chat packet (" + target.id()
+                        + ") rejected: network.forward." + target.id() + "=false on this server.");
                 return;
             }
 
             broadcast(target, remoteServerName, senderName, rawMessage);
 
         } catch (Exception e) {
-            plugin.getLogger().warning(
-                    "Malformed network chat packet received and discarded: " + e.getMessage()
-            );
+            plugin.getLogger().warning("Malformed network chat packet received and discarded: " + e.getMessage());
         }
     }
 
     private ChatChannel resolveChannel(String id) {
         for (ChatChannel c : ChatChannel.values()) {
-            if (c.id().equals(id)) return c;
+            if (c.id().equals(id)) {
+                return c;
+            }
         }
         return null;
     }
 
-    private void broadcast(
-            ChatChannel channel,
-            String remoteServerName,
-            String senderName,
-            String rawMessage
-    ) {
-        var formatted = formatter.formatRemote(
+    private void broadcast(ChatChannel channel, String remoteServerName, String senderName, String rawMessage) {
+        Component formatted = formatter.formatRemote(
                 channel,
                 tagFormat,
                 remoteServerName,
@@ -252,10 +311,8 @@ public final class NetworkBridge implements PluginMessageListener {
             }
         }
 
-        plugin.getLogger().info(
-                "[NET] [" + channel.id().toUpperCase()
-                        + "@" + remoteServerName + "] "
-                        + senderName + ": " + rawMessage
-        );
+        plugin.getLogger().info("[NET] [" + channel.id().toUpperCase()
+                + "@" + remoteServerName + "] "
+                + senderName + ": " + rawMessage);
     }
 }
