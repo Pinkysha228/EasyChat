@@ -57,6 +57,7 @@ private-messages:
     sender: "&7[&6Me &7-> &6{receiver}&7] &f{message}"
     receiver: "&7[&6{sender} &7-> &6Me&7] &f{message}"
     spy: "&8[SPY] &7[{sender} -> {receiver}]: &f{message}"
+    offline: "&cPlayer &f{player} &cwas not found online."
 
   # Forward PMs across Velocity network if network.enabled is true
   network-forward: true
@@ -117,6 +118,7 @@ moderation:
     already-muted: "&cThis player already has an active mute."
 
 messages:
+  player-not-found: "&cPlayer &f{player} &cwas not found online."
   reload: "&aEasyChat configuration has been reloaded."
   invalid-duration: "&cInvalid duration. Examples: 30s, 10m, 2h, 7d, perm"
   usage-mute: "&c/mute <player> <duration|perm> [reason]"

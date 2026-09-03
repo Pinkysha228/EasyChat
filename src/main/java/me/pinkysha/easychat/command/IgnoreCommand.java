@@ -52,7 +52,15 @@ public final class IgnoreCommand implements CommandExecutor, TabCompleter {
 
         Player target = Bukkit.getPlayerExact(targetName);
         if (target == null) {
-            Component msg = plugin.message("private-messages.messages.player-not-found");
+            String rawNotFound = plugin.getConfig().getString("private-messages.messages.player-not-found");
+            if (rawNotFound == null || rawNotFound.isBlank()) {
+                rawNotFound = plugin.getConfig().getString("private-messages.format.offline");
+            }
+            if (rawNotFound == null || rawNotFound.isBlank()) {
+                rawNotFound = plugin.getConfig().getString("messages.player-not-found", "&cPlayer &f{player} &cwas not found online.");
+            }
+
+            Component msg = plugin.colorParser().parse(rawNotFound);
             player.sendMessage(plugin.replace(msg, "{player}", targetName));
             return true;
         }
